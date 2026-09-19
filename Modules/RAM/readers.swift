@@ -11,6 +11,7 @@
 
 import Cocoa
 import Kit
+import Darwin.libproc
 
 internal class UsageReader: Reader<RAM_Usage> {
     public var totalSize: Double = 0
@@ -170,40 +171,98 @@ public class ProcessReader: Reader<[TopProcess]> {
             return
         }
         
-        var processGroups: [String: [TopProcess]] = [:]
+        var processGroups: [String: (name: String, mainPid: Int, totalUsage: Double, procs: [TopProcess])] = [:]
         for process in processes {
-            let responsiblePid = ProcessReader.getResponsiblePid(process.pid)
-            let groupKey = "\(responsiblePid)"
+            let (resolvedName, appPid) = ProcessReader.resolveAppName(pid: process.pid, defaultName: process.name)
+            let groupKey = resolvedName
             
-            if processGroups[groupKey] != nil {
-                processGroups[groupKey]!.append(process)
+            if var existing = processGroups[groupKey] {
+                existing.totalUsage += process.usage
+                existing.procs.append(process)
+                if NSRunningApplication(processIdentifier: pid_t(process.pid))?.icon != nil {
+                    existing.mainPid = process.pid
+                }
+                processGroups[groupKey] = existing
             } else {
-                processGroups[groupKey] = [process]
+                processGroups[groupKey] = (name: resolvedName, mainPid: appPid, totalUsage: process.usage, procs: [process])
             }
         }
         
         var result: [TopProcess] = []
-        for (_, processes) in processGroups {
-            let totalUsage = processes.reduce(0) { $0 + $1.usage }
-            let firstProcess = processes.first!
-            let name: String
-            
-            if let app = NSRunningApplication(processIdentifier: pid_t(ProcessReader.getResponsiblePid(firstProcess.pid))),
-               let appName = app.localizedName {
-                name = appName
-            } else {
-                name = firstProcess.name
-            }
-            
+        for (_, group) in processGroups {
             result.append(TopProcess(
-                pid: ProcessReader.getResponsiblePid(firstProcess.pid),
-                name: name,
-                usage: totalUsage
+                pid: group.mainPid,
+                name: group.name,
+                usage: group.totalUsage
             ))
         }
         
         result.sort { $0.usage > $1.usage }
         self.callback(Array(result.prefix(self.numberOfProcesses)))
+    }
+    
+    private static func getProcessPath(pid: Int32) -> String? {
+        var pathBuffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+        let pathLength = proc_pidpath(pid, &pathBuffer, UInt32(pathBuffer.count))
+        if pathLength > 0 {
+            return String(cString: pathBuffer)
+        }
+        return nil
+    }
+    
+    public static func resolveAppName(pid: Int, defaultName: String) -> (name: String, appPid: Int) {
+        let responsiblePid = ProcessReader.getResponsiblePid(pid)
+        let candidatePid = (responsiblePid > 0) ? responsiblePid : pid
+        
+        if let app = NSRunningApplication(processIdentifier: pid_t(candidatePid)),
+           let appName = app.localizedName, !appName.isEmpty {
+            return (appName, candidatePid)
+        }
+        
+        if let app = NSRunningApplication(processIdentifier: pid_t(pid)),
+           let appName = app.localizedName, !appName.isEmpty {
+            return (appName, pid)
+        }
+        
+        for p in [pid, candidatePid] {
+            if let path = getProcessPath(pid: Int32(p)) {
+                if let match = path.range(of: #"/([^/]+)\.app"#, options: .regularExpression) {
+                    let bundle = String(path[match])
+                        .replacingOccurrences(of: ".app", with: "")
+                        .replacingOccurrences(of: "/", with: "")
+                    if !bundle.isEmpty {
+                        return (bundle, p)
+                    }
+                }
+            }
+        }
+        
+        let cleanName: String
+        if defaultName.contains("Google Chrome") || defaultName.contains("chrome-devtools") {
+            cleanName = "Google Chrome"
+        } else if defaultName.contains("Dia") || defaultName.contains("ArcCore") || defaultName.contains("Browser Helper") {
+            cleanName = "Dia"
+        } else if defaultName.contains("Safari") || defaultName.contains("WebKit") {
+            cleanName = "Safari"
+        } else if defaultName.contains("Code Helper") || defaultName.contains("Visual Studio Code") {
+            cleanName = "Visual Studio Code"
+        } else if defaultName.contains("Cursor") {
+            cleanName = "Cursor"
+        } else if defaultName.contains("Slack") {
+            cleanName = "Slack"
+        } else if defaultName.contains("WhatsApp") {
+            cleanName = "WhatsApp"
+        } else if defaultName.contains("Spotify") {
+            cleanName = "Spotify"
+        } else if defaultName.contains("Antigravity") {
+            cleanName = "Antigravity"
+        } else if defaultName.contains("com.apple.Virtua") && defaultName.contains("Docker") {
+            cleanName = "Docker"
+        } else {
+            cleanName = defaultName
+        }
+        
+        return (cleanName, candidatePid)
     }
     
     private static let dynGetResponsiblePidFunc: UnsafeMutableRawPointer? = {
@@ -263,15 +322,8 @@ public class ProcessReader: Reader<[TopProcess]> {
             usage *= 1000
         }
         
-        var name: String = command
-        if let app = NSRunningApplication(processIdentifier: pid_t(pid)), let n = app.localizedName {
-            name = n
-        }
+        let (name, resolvedPid) = ProcessReader.resolveAppName(pid: pid, defaultName: command)
         
-        if command.contains("com.apple.Virtua") && name.contains("Docker") {
-            name = "Docker"
-        }
-        
-        return TopProcess(pid: pid, name: name, usage: usage * Double(1000 * 1000))
+        return TopProcess(pid: resolvedPid, name: name, usage: usage * Double(1000 * 1000))
     }
 }

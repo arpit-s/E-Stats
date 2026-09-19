@@ -23,12 +23,13 @@ public struct module_c {
     public var hasPreview: Bool { self.previewConfig["available"] as? Bool ?? false }
     
     init(in path: String) {
-        let dict: NSDictionary = NSDictionary(contentsOfFile: path)!
+        let dict: NSDictionary = NSDictionary(contentsOfFile: path) ?? NSDictionary()
         
         if let name = dict["Name"] as? String {
             self.name = name
         } else {
-            fatalError("failed to initialize module, name is missing")
+            self.name = (path as NSString).lastPathComponent.replacingOccurrences(of: ".plist", with: "").replacingOccurrences(of: "config", with: "")
+            if self.name.isEmpty { self.name = "Module" }
         }
         
         if let state = dict["State"] as? Bool {
@@ -118,7 +119,12 @@ open class Module {
     ) {
         self.moduleType = moduleType
         self.portal = portal
-        self.config = module_c(in: Bundle(for: type(of: self)).path(forResource: "config", ofType: "plist")!)
+        let configPath = Bundle(for: type(of: self)).path(forResource: "config", ofType: "plist")
+            ?? Bundle.main.path(forResource: "config", ofType: "plist", inDirectory: moduleType.stringValue)
+            ?? Bundle.main.path(forResource: moduleType.stringValue, ofType: "plist")
+            ?? Bundle.main.path(forResource: "config", ofType: "plist")
+            ?? "\(Bundle.main.resourcePath ?? "")/\(moduleType.stringValue)/config.plist"
+        self.config = module_c(in: configPath)
         
         self.log = NextLog.shared.copy(category: self.config.name)
         self.settingsView = settings

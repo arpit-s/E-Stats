@@ -118,7 +118,7 @@ public struct model_s {
     public let name: String
     public let year: Int
     public let type: deviceType
-    public var icon: NSImage = NSImage(named: NSImage.Name("imacPro"))!
+    public var icon: NSImage = NSImage(named: NSImage.Name("imacPro")) ?? NSImage()
 }
 
 public struct os_s {
@@ -684,45 +684,36 @@ public class SystemKit {
     }
     
     private func getIcon(type: deviceType, year: Int) -> NSImage {
+        let name: String
         switch type {
         case .macMini:
             if year >= 2024 {
-                return NSImage(named: NSImage.Name("macMini2024"))!
+                name = "macMini2024"
+            } else if year >= 2020 && year <= 2023 {
+                name = "macMini2020"
+            } else {
+                name = "macMini"
             }
-            if year >= 2020 && year <= 2023 {
-                return NSImage(named: NSImage.Name("macMini2020"))!
-            }
-            return NSImage(named: NSImage.Name("macMini"))!
         case .macStudio:
-            return NSImage(named: NSImage.Name("macStudio"))!
+            name = "macStudio"
         case .iMacPro:
-            return NSImage(named: NSImage.Name("imacPro"))!
+            name = "imacPro"
         case .macPro:
-            switch year {
-            case 2019:
-                return NSImage(named: NSImage.Name("macPro2019"))!
-            default:
-                return NSImage(named: NSImage.Name("macPro"))!
-            }
+            name = (year == 2019) ? "macPro2019" : "macPro"
         case .iMac:
-            return NSImage(named: NSImage.Name("imac"))!
+            name = "imac"
         case .macbook:
-            return NSImage(named: NSImage.Name("macbookAir"))!
+            name = "macbookAir"
         case .macbookNeo:
-            return NSImage(named: NSImage.Name("macbookNeo"))!
+            name = "macbookNeo"
         case .macbookAir:
-            if year >= 2022 {
-                return NSImage(named: NSImage.Name("macbookAir"))!
-            }
-            return NSImage(named: NSImage.Name("macbookAir4thGen"))!
+            name = (year >= 2022) ? "macbookAir" : "macbookAir4thGen"
         case .macbookPro:
-            if year >= 2021 {
-                return NSImage(named: NSImage.Name("macbookPro5thGen"))!
-            }
-            return NSImage(named: NSImage.Name("macbookPro"))!
+            name = (year >= 2021) ? "macbookPro5thGen" : "macbookPro"
         default:
-            return NSImage(named: NSImage.Name("imacPro"))!
+            name = "imacPro"
         }
+        return NSImage(named: NSImage.Name(name)) ?? NSImage()
     }
     
     private func getModel() -> model_s? {

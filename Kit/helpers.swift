@@ -1360,7 +1360,9 @@ public class SMCHelper {
             return nil
         }
         
-        service.setSMCPath(Bundle.main.path(forResource: "smc", ofType: nil)!)
+        if let smcPath = Bundle.main.path(forResource: "smc", ofType: nil) {
+            service.setSMCPath(smcPath)
+        }
         
         return service
     }
