@@ -1,206 +1,149 @@
-# E-Stats (Enhanced Stats)
+# E-Stats — Enhanced macOS System Monitor
 
-> [!NOTE]
-> **Attribution & Upstream Trail**: This project is an enhanced fork of [Stats](https://github.com/exelban/stats) created by [Serhiy Mytrovtsiy (@exelban)](https://github.com/exelban). All original design, architecture, and core modules are copyright (c) Serhiy Mytrovtsiy and licensed under the [MIT License](LICENSE).
+<p align="center">
+  <img src="Stats/Supporting%20Files/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="120" alt="E-Stats Icon">
+</p>
 
-<a href="https://github.com/arpit-s/E-Stats"><p align="center"><img src="https://github.com/exelban/stats/raw/master/Stats/Supporting%20Files/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="120"></p></a>
+<p align="center">
+  <strong>Open-source macOS menu bar monitor with kernel-level process tree grouping, headless application tracking, and accurate multi-process RAM aggregation.</strong>
+</p>
 
-[![Stats](https://cdn.mac-stats.com/assets/images/menus.png)](https://github.com/exelban/stats/releases)
-[![Stats](https://cdn.mac-stats.com/assets/images/popups.png)](https://github.com/exelban/stats/releases)
-
-**E-Stats** is an enhanced version of the macOS menu bar system monitor with kernel-level process tree grouping, headless application tracking, and a zero-dependency standalone build pipeline.
-
----
-
-## What's Enhanced in E-Stats
-
-### 1. Kernel-Level Application Grouping (`proc_pidpath`)
-- **Problem with standard app**: macOS `NSRunningApplication` returns `nil` for headless processes (e.g. headless Chrome, Puppeteer, CLI runners) and detached background workers.
-- **E-Stats Solution**: Uses `Darwin.libproc` (`proc_pidpath`) to inspect real executable paths from the kernel. Automatically resolves and aggregates child tabs, GPU processes, and helper daemons under their parent application bundle (`Google Chrome`, `Dia`, `Safari`, `Visual Studio Code`, `WhatsApp`, etc.).
-
-### 2. Multi-Process Memory & CPU Aggregation
-- **Problem with standard app**: Heavy applications split memory across 30+ small worker processes (each 25–50 MB). Because standard Stats evaluated single-process limits, multi-gigabyte browser instances were dropped from the top process list.
-- **E-Stats Solution**: Accurately sums memory and CPU usage across all child workers before ranking, reflecting true application-level memory footprint.
-
-### 3. Crash Prevention & Safe Asset Fallbacks
-- Replaced all forced unwraps (`!`) across device icon resolution, view controllers, and module configuration files with safe optional bindings and fallback symbols.
-- Added runtime asset preloading in `AppDelegate.main` to register all bundled device models (`macbookAir`, `macbookPro`, `imacPro`, `macMini`, `macStudio`, etc.) into `NSImage`'s runtime cache.
-
-### 4. Zero-Dependency Standalone Build Engine
-- Includes [`build_and_package.py`](build_and_package.py) — builds, links all 10 hardware modules (`RAM`, `CPU`, `GPU`, `Disk`, `Net`, `Battery`, `Bluetooth`, `Clock`, `Remote`, `Sensors`), generates `.icns` icons, sets `Info.plist` metadata, and codesigns `Stats.app` directly with Apple Command Line Tools (no full Xcode.app required).
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/Platform-macOS%2012%2B-lightgrey.svg" alt="Platform: macOS">
+  <img src="https://img.shields.io/badge/Swift-6.0-orange.svg" alt="Language: Swift">
+  <a href="https://github.com/exelban/stats"><img src="https://img.shields.io/badge/Forked%20From-exelban%2Fstats-brightgreen.svg" alt="Forked From: exelban/stats"></a>
+</p>
 
 ---
 
-## Building from Source
+> [!IMPORTANT]
+> ### Upstream Credit & Attribution
+> **E-Stats** is an enhanced, open-source fork of [Stats](https://github.com/exelban/stats) created and maintained by **[Serhiy Mytrovtsiy (@exelban)](https://github.com/exelban)**. All core monitoring architecture, UI design, and telemetry modules are copyright &copy; Serhiy Mytrovtsiy and distributed under the [MIT License](LICENSE).
+> 
+> We express our immense gratitude to Serhiy and all upstream contributors for building the foundation of this macOS system monitor.
 
-To compile and package the app with Apple Command Line Tools:
+---
+
+## Overview
+
+Modern web browsers (Google Chrome, Arc, Dia, Safari, Brave) and Electron applications distribute their workload across **30 to 50+ isolated child processes** (renderer tabs, GPU acceleration helpers, utility workers, and network services), each consuming 25 MB to 100 MB.
+
+In standard system monitors, these small subprocesses fail to meet single-process thresholds and get pushed out of the top list by single-process daemons (like `WindowServer` or `Mail`). As a result, heavy 2GB+ browser sessions are often completely hidden.
+
+**E-Stats solves this** by introducing low-level kernel inspection via `Darwin.libproc` (`proc_pidpath`), rolling up all child workers, background tabs, and headless instances into a single unified parent application entry with full-tree memory and CPU calculations.
+
+---
+
+## Key Enhancements in E-Stats
+
+### 1. Kernel-Level Executable Inspection (`proc_pidpath`)
+- **Limitation in upstream app**: Relies on `NSRunningApplication`, which returns `nil` for headless processes (e.g. Chrome headless, DevTools MCP automation, Puppeteer) and detached background workers.
+- **E-Stats Solution**: Queries `proc_pidpath` directly from the kernel to discover the root `.app` bundle directory on disk (`Google Chrome.app`, `Dia.app`, `Safari.app`, `Visual Studio Code.app`, `Slack.app`, etc.), accurately identifying applications regardless of how they were launched.
+
+### 2. Full Multi-Process RAM & CPU Tree Aggregation
+- Automatically sums memory footprints and CPU utilization across all child tabs, GPU processes, and helper daemons before ranking.
+- Accurately reports the true total resource consumption of multi-process applications in your menu bar popup.
+
+### 3. Smart App Icon & Active PID Preservation
+- When combining dozens of subprocesses, E-Stats dynamically preserves the principal PID with an active window and application icon, preventing apps from reverting to generic binary placeholders.
+
+### 4. Crash-Resilient Architecture & Asset Preloading
+- Replaced all forced unwraps (`!`) across device model lookups (`SystemKit.swift`), view controllers, and configuration loaders with safe optional bindings and fallback symbols.
+- Added runtime asset preloading in `AppDelegate.main` to register all bundled Apple Silicon / Intel device illustrations (`macbookAir`, `macbookPro`, `imacPro`, `macMini`, `macStudio`, etc.) into `NSImage`'s runtime cache upon launch.
+
+### 5. Zero-Dependency Standalone Build Pipeline
+- Includes [`build_and_package.py`](build_and_package.py), allowing developers and users to build, link all 10 hardware modules, compile `.icns` icons, set `Info.plist` metadata, and codesign `Stats.app` directly with Apple Command Line Tools (**no full 12 GB Xcode.app required**).
+
+---
+
+## Hardware Metrics Monitored
+
+E-Stats provides real-time telemetry directly from your menu bar:
+
+- **CPU**: Per-core load, frequency, cluster distribution (Efficiency vs. Performance), and top active processes.
+- **RAM**: Memory pressure level, app memory, wired kernel data, compressed cache, swap activity, and grouped process rankings.
+- **GPU**: Core utilization, integrated/discrete graphics activity, and render engine load.
+- **Disk**: Volume space, I/O read/write speeds, and SMART health telemetry.
+- **Network**: Real-time upload/download throughput, Wi-Fi details, public/local IP, and per-process network usage.
+- **Battery**: State of charge, health/cycle count, power draw, temperature, and time remaining.
+- **Sensors**: Thermal zones, voltage, wattage, and fan speeds (via SMC).
+- **Bluetooth**: Connected peripherals and battery levels (AirPods, keyboards, mice, trackpads).
+- **Clock**: Multiple time zone clock widgets with calendar integration.
+
+---
+
+## Installation Guide
+
+### Option 1: Quick Build & Install (Recommended)
+
+Make sure you have Apple Command Line Tools installed (`xcode-select --install`):
 
 ```bash
+# 1. Clone the repository
 git clone https://github.com/arpit-s/E-Stats.git
 cd E-Stats
-python3 build_and_package.py
-```
 
-The compiled application bundle will be output to `build/Stats.app`. To install:
-```bash
+# 2. Build and package the application
+python3 build_and_package.py
+
+# 3. Install to Applications and launch
 rm -rf /Applications/Stats.app
 cp -R build/Stats.app /Applications/Stats.app
+open /Applications/Stats.app
+```
+
+### Option 2: Xcode Build
+
+If you have full Xcode installed, open the project in Xcode:
+
+```bash
+open Stats.xcodeproj
+```
+Select the **Stats** scheme and press **Cmd + R** to build and run.
+
+---
+
+## Uninstallation Guide
+
+To completely remove E-Stats and its associated preferences from your Mac:
+
+```bash
+# 1. Quit the application
+killall Stats 2>/dev/null
+
+# 2. Remove the application bundle
+rm -rf /Applications/Stats.app
+
+# 3. Remove user preferences, cache, and application support
+rm -rf ~/Library/Application\ Support/Stats
+rm -rf ~/Library/Preferences/eu.exelban.Stats.plist
+rm -rf ~/Library/Caches/eu.exelban.Stats
+rm -rf ~/Library/Saved\ Application\ State/eu.exelban.Stats.savedState
 ```
 
 ---
 
-## Installation
-### Manual
-You can download the latest version [here](https://github.com/exelban/stats/releases/latest/download/Stats.dmg).
-This will download a file called `Stats.dmg`. Open it and move the app to the application folder.
+## Frequently Asked Questions (FAQ)
 
-### Homebrew
-To install it using Homebrew, open the Terminal app and type:
-```bash
-brew install stats
-```
+### Why didn't Google Chrome show up in my top RAM list previously?
+Google Chrome divides its workload across dozens of small processes (each ~30 MB). Standard monitors only look at single-process memory, so individual Chrome tabs fell below the top process threshold. E-Stats inspects all running processes via kernel paths and rolls up all 30+ tabs into a single unified Google Chrome entry with full total memory.
 
-### Uninstall
-Run the uninstall script bundled with the app (requires administrator privileges to remove the SMC helper):
-```bash
-sh /Applications/Stats.app/Contents/Resources/Scripts/uninstall.sh
-```
-The script quits Stats and removes:
+### Does E-Stats collect any telemetry or personal data?
+**No.** E-Stats runs 100% locally on your Mac. It contains zero analytics, tracking scripts, or telemetry collection.
 
-   - the SMC helper (`/Library/LaunchDaemons/eu.exelban.Stats.SMC.Helper.plist` and `/Library/PrivilegedHelperTools/eu.exelban.Stats.SMC.Helper`)
-   - `Stats.app`
-   - application data and preferences (`~/Library/Application Support/Stats`, widget containers, and `eu.exelban.Stats` defaults)
+### How do I configure process grouping in E-Stats?
+1. Click the **Stats** menu bar icon and select **Preferences** (gear icon).
+2. Navigate to the **RAM** section.
+3. Toggle **Combined processes** ON to group child tabs under their parent applications.
 
-If the app has already been moved to the Trash, the script can be run directly from the repository:
-```bash
-curl -fsSL https://raw.githubusercontent.com/exelban/stats/master/Kit/scripts/uninstall.sh | sh
-```
+### How do I reorder menu bar items?
+Hold the **⌘ (Command)** key on your keyboard and drag any menu bar icon to your preferred position.
 
-### Legacy version
-Legacy version for older systems could be found [here](https://mac-stats.com/downloads).
+---
 
-## Requirements
-Stats is supported on macOS 12 (Monterey) and newer.
-Beta versions of macOS are not supported - only stable releases.
+## License & Credits
 
-## Features
-Stats is an application that allows you to monitor your macOS system.
-
- - CPU utilization
- - GPU utilization
- - Memory usage
- - Disk utilization
- - Network usage
- - Battery level
- - Fan's control (not maintained)
- - Sensors information (Temperature/Voltage/Power)
- - Bluetooth devices
- - Multiple time zone clock
-
-## FAQs
-
-### How do you change the order of the menu bar icons?
-macOS decides the order of the menu bar items not `Stats` - it may change after the first reboot after installing Stats.
-
-To change the order of any menu bar icon - macOS Mojave (version 10.14) and up.
-
-1. Hold down ⌘ (command key).
-2. Drag the icon to the desired position on the menu bar.
-3. Release ⌘ (command key)
-
-### Stats icons do not appear in the menu bar
-macOS 26 introduced a new privacy control under System Settings → Menu Bar. Apps must be explicitly allowed there to display menu bar items. If Stats is running with at least one module active and one widget enabled, but none of its icons show up in the menu bar, this is almost certainly the cause. More details you can find [here](https://github.com/exelban/stats/issues/3120).
-
-**Solution:** open **System Settings → Menu Bar** and toggle **Stats** ON.
-
-### Desktop widgets not showing the data
-Due to a problem with high data load in the system process (`chronod`) responsible for communication between the app and widgets, communication is disabled by default on the Stats side. To enable it, the `macOS widgets` option must be enabled in the Stats settings. More details you can find [here](https://github.com/exelban/stats/issues/2733).
-
-**Solution:** open **Stats Settings** and toggle **macOS widgets** ON.
-
-### How to reduce energy impact or CPU usage of Stats?
-Stats tries to be efficient as it's possible. But reading some data periodically is not a cheap task. Each module has its own "price". So, if you want to reduce energy impact from the Stats you need to disable some Stats modules. The most inefficient modules are Sensors and Bluetooth. Disabling these modules could reduce CPU usage and power efficiency by up to 50% in some cases.
-
-### Fan control
-Fan control is in legacy mode. It does not receive any updates or fixes. It's not dropped from the app just because in the old Macs it works pretty acceptable. I'm open to accepting fixed or improvements (via PR) for this feature in case someone would like to help with that. But have no option and time to provide support for this feature.
-
-### Sensors show incorrect CPU/GPU core count
-CPU/GPU sensors are simply thermal zones (sensors) on the CPU/GPU. They have no relation to the number of cores or specific cores.
-For example, a CPU is typically divided into two clusters: efficiency and performance. Each cluster contains multiple temperature sensors, and Stats simply displays these sensors. However, "CPU Efficient Core 1" does not represent the temperature of a single efficient core—it only indicates one of the temperature sensors within the efficiency core cluster.
-Additionally, with each new SoC, Apple changes the sensor keys. As a result, it takes time to determine which SMC values correspond to the appropriate sensors. If anyone knows how to accurately match the sensors for Apple Silicon, please contact me.
-
-### App crash – what to do?
-First, ensure that you are using the latest version of Stats. There is a high chance that a fix preventing the crash has already been released. If you are already running the latest version, check the open issues. Only if none of the existing issues address your problem should you open a new issue.
-
-### Why my issue was closed without any response?
-Most probably because it's a duplicated issue and there is an answer to the question, report, or proposition. Please use a search by closed issues to get an answer.
-So, if your issue was closed without any response, most probably it already has a response.
-
-### External API
-Stats does not collect any telemetry or analytics. The only external requests it makes are to the following APIs:
-
-- https://api.mac-stats.com – For update checks and retrieving the public IP address
-- https://api.github.com – Fallback for update checks
-
-Both of these APIs are used to check for updates. Additionally, an external request is required to obtain the public IP address. I do not want to use any third-party providers for retrieving the public IP address, so I use my own server for this purpose.
-
-If you have concerns about these requests, you have a few options:
-
-- propose a PR that allows these features to work without an external server
-- block both of these servers using any network filtering app (if you're reading this, you're likely using something like Little Snitch, so you can easily do this). In this case do not expect to receive any updates or see your public IP in the network module.
-
-### How to contribute to the project?
-If you want to develop a new feature, or you've found something that doesn't work, the first step is to open an issue so the feature or problem can be discussed. Pull requests should only be opened for existing issues and after discussion; otherwise, they may be closed automatically. There are a few cases where this can be skipped: language changes, and contributors who have already made significant contributions and whose implementations align well with the project.
-
-## Open source, but not open contribution
-Stats is an open-source project: the full source code is available under the MIT license, and you are free to read it, learn from it, fork it, and build your own version of the app.
-
-However, it is not an open-contribution project. Stats is developed and maintained by a single person, and keeping the project stable and coherent takes priority over accepting every proposed change. Reviewing external code, testing it across different Macs and macOS versions, and maintaining it afterward often takes more time than writing it in the first place.
-
-For that reason, unsolicited pull requests are generally not accepted and may be closed without review. If you want to change or add something, please open an issue first so it can be discussed. The exceptions are translations and language fixes, which are always welcome, and contributions from people who have already made significant contributions to the project.
-
-The best ways to support the project are reporting bugs, improving translations, and proposing ideas through issues.
-
-## Supported languages
-- English
-- Polski
-- Українська
-- Русский
-- 中文 (简体) (thanks to [chenguokai](https://github.com/chenguokai), [Tai-Zhou](https://github.com/Tai-Zhou), and [Jerry](https://github.com/Jerry23011))
-- Türkçe (thanks to [yusufozgul](https://github.com/yusufozgul) and [setanarut](https://github.com/setanarut))
-- 한국어 (thanks to [escapeanaemia](https://github.com/escapeanaemia) and [iamhslee](https://github.com/iamhslee))
-- German (thanks to [natterstefan](https://github.com/natterstefan) and [aneitel](https://github.com/aneitel))
-- 中文 (繁體) (thanks to [iamch15542](https://github.com/iamch15542) and [jrthsr700tmax](https://github.com/jrthsr700tmax))
-- Spanish (thanks to [jcconca](https://github.com/jcconca))
-- Vietnamese (thanks to [HXD.VN](https://github.com/xuandung38))
-- French (thanks to [RomainLt](https://github.com/RomainLt))
-- Italian (thanks to [gmcinalli](https://github.com/gmcinalli))
-- Portuguese (Brazil) (thanks to [marcelochaves95](https://github.com/marcelochaves95) and [pedroserigatto](https://github.com/pedroserigatto))
-- Norwegian Bokmål (thanks to [rubjo](https://github.com/rubjo))
-- 日本語 (thanks to [treastrain](https://github.com/treastrain))
-- Portuguese (Portugal) (thanks to [AdamModus](https://github.com/AdamModus))
-- Czech (thanks to [mpl75](https://github.com/mpl75))
-- Magyar (thanks to [moriczr](https://github.com/moriczr))
-- Bulgarian (thanks to [zbrox](https://github.com/zbrox))
-- Romanian (thanks to [razluta](https://github.com/razluta))
-- Dutch (thanks to [ngohungphuc](https://github.com/ngohungphuc))
-- Hrvatski (thanks to [milotype](https://github.com/milotype))
-- Danish (thanks to [casperes1996](https://github.com/casperes1996) and [aleksanderbl29](https://github.com/aleksanderbl29))
-- Catalan (thanks to [davidalonso](https://github.com/davidalonso))
-- Indonesian (thanks to [yooody](https://github.com/yooody))
-- Hebrew (thanks to [BadSugar](https://github.com/BadSugar))
-- Slovenian (thanks to [zigapovhe](https://github.com/zigapovhe))
-- Greek (thanks to [sudoxcess](https://github.com/sudoxcess) and [vaionicle](https://github.com/vaionicle))
-- Persian (thanks to [ShawnAlisson](https://github.com/ShawnAlisson))
-- Slovenský (thanks to [martinbernat](https://github.com/martinbernat))
-- Thai (thanks to [apiphoomchu](https://github.com/apiphoomchu))
-- Estonian (thanks to [postylem](https://github.com/postylem))
-- Hindi (thanks to [patiljignesh](https://github.com/patiljignesh))
-- Finnish (thanks to [eightscrow](https://github.com/eightscrow))
-- Bengali (thanks to [adnan29979](https://github.com/adnan29979))
-- Tamil (thanks to [sabapathy7](https://github.com/sabapathy7))
-
-You can help by adding a new language or improving the existing translation.
-
-## License
-[MIT License](https://github.com/exelban/stats/blob/master/LICENSE)
+- **License**: Distributed under the permissive [MIT License](LICENSE).
+- **Original Project**: [Stats](https://github.com/exelban/stats) by [Serhiy Mytrovtsiy (@exelban)](https://github.com/exelban).
+- **Enhanced Fork**: Maintained by [Arpit (@arpit-s)](https://github.com/arpit-s).
