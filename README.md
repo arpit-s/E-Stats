@@ -1,11 +1,53 @@
-# Stats
+# E-Stats (Enhanced Stats)
 
-<a href="https://github.com/exelban/stats/releases"><p align="center"><img src="https://github.com/exelban/stats/raw/master/Stats/Supporting%20Files/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="120"></p></a>
+> [!NOTE]
+> **Attribution & Upstream Trail**: This project is an enhanced fork of [Stats](https://github.com/exelban/stats) created by [Serhiy Mytrovtsiy (@exelban)](https://github.com/exelban). All original design, architecture, and core modules are copyright (c) Serhiy Mytrovtsiy and licensed under the [MIT License](LICENSE).
+
+<a href="https://github.com/arpit-s/E-Stats"><p align="center"><img src="https://github.com/exelban/stats/raw/master/Stats/Supporting%20Files/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="120"></p></a>
 
 [![Stats](https://cdn.mac-stats.com/assets/images/menus.png)](https://github.com/exelban/stats/releases)
 [![Stats](https://cdn.mac-stats.com/assets/images/popups.png)](https://github.com/exelban/stats/releases)
 
-macOS system monitor in your menu bar
+**E-Stats** is an enhanced version of the macOS menu bar system monitor with kernel-level process tree grouping, headless application tracking, and a zero-dependency standalone build pipeline.
+
+---
+
+## What's Enhanced in E-Stats
+
+### 1. Kernel-Level Application Grouping (`proc_pidpath`)
+- **Problem with standard app**: macOS `NSRunningApplication` returns `nil` for headless processes (e.g. headless Chrome, Puppeteer, CLI runners) and detached background workers.
+- **E-Stats Solution**: Uses `Darwin.libproc` (`proc_pidpath`) to inspect real executable paths from the kernel. Automatically resolves and aggregates child tabs, GPU processes, and helper daemons under their parent application bundle (`Google Chrome`, `Dia`, `Safari`, `Visual Studio Code`, `WhatsApp`, etc.).
+
+### 2. Multi-Process Memory & CPU Aggregation
+- **Problem with standard app**: Heavy applications split memory across 30+ small worker processes (each 25–50 MB). Because standard Stats evaluated single-process limits, multi-gigabyte browser instances were dropped from the top process list.
+- **E-Stats Solution**: Accurately sums memory and CPU usage across all child workers before ranking, reflecting true application-level memory footprint.
+
+### 3. Crash Prevention & Safe Asset Fallbacks
+- Replaced all forced unwraps (`!`) across device icon resolution, view controllers, and module configuration files with safe optional bindings and fallback symbols.
+- Added runtime asset preloading in `AppDelegate.main` to register all bundled device models (`macbookAir`, `macbookPro`, `imacPro`, `macMini`, `macStudio`, etc.) into `NSImage`'s runtime cache.
+
+### 4. Zero-Dependency Standalone Build Engine
+- Includes [`build_and_package.py`](build_and_package.py) — builds, links all 10 hardware modules (`RAM`, `CPU`, `GPU`, `Disk`, `Net`, `Battery`, `Bluetooth`, `Clock`, `Remote`, `Sensors`), generates `.icns` icons, sets `Info.plist` metadata, and codesigns `Stats.app` directly with Apple Command Line Tools (no full Xcode.app required).
+
+---
+
+## Building from Source
+
+To compile and package the app with Apple Command Line Tools:
+
+```bash
+git clone https://github.com/arpit-s/E-Stats.git
+cd E-Stats
+python3 build_and_package.py
+```
+
+The compiled application bundle will be output to `build/Stats.app`. To install:
+```bash
+rm -rf /Applications/Stats.app
+cp -R build/Stats.app /Applications/Stats.app
+```
+
+---
 
 ## Installation
 ### Manual
