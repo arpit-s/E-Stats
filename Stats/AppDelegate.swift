@@ -62,6 +62,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     
     static func main() {
         let launchStart = Date()
+        
+        if let resourcePath = Bundle.main.resourcePath,
+           let files = try? FileManager.default.contentsOfDirectory(atPath: resourcePath) {
+            for f in files where f.hasSuffix(".png") {
+                let name = (f as NSString).deletingPathExtension
+                let fullPath = (resourcePath as NSString).appendingPathComponent(f)
+                if let img = NSImage(contentsOfFile: fullPath) {
+                    img.setName(NSImage.Name(name))
+                }
+            }
+        }
+        
         let app = NSApplication.shared
         let delegate = AppDelegate()
         delegate.launchStart = launchStart

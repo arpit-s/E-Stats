@@ -165,6 +165,10 @@ def main():
     subprocess.run(['/usr/libexec/PlistBuddy', '-c', 'Set :CFBundleShortVersionString 3.0.0', target_plist], check=False)
     subprocess.run(['/usr/libexec/PlistBuddy', '-c', 'Set :LSMinimumSystemVersion 12.0', target_plist], check=False)
     subprocess.run(['/usr/libexec/PlistBuddy', '-c', 'Set :CFBundleDevelopmentRegion en', target_plist], check=False)
+    subprocess.run(['/usr/libexec/PlistBuddy', '-c', 'Add :CFBundleIconFile string AppIcon', target_plist], check=False)
+    subprocess.run(['/usr/libexec/PlistBuddy', '-c', 'Set :CFBundleIconFile AppIcon', target_plist], check=False)
+    subprocess.run(['/usr/libexec/PlistBuddy', '-c', 'Add :CFBundleIconName string AppIcon', target_plist], check=False)
+    subprocess.run(['/usr/libexec/PlistBuddy', '-c', 'Set :CFBundleIconName AppIcon', target_plist], check=False)
 
     shutil.copy2(f'{PROJECT_ROOT}/Stats/Supporting Files/background.png', os.path.join(RESOURCES_DIR, 'background.png'))
     
@@ -193,7 +197,7 @@ def main():
         if f.endswith('.png'):
             clean_name = f.replace(' 1', '')
             shutil.copy2(os.path.join(src_icon_dir, f), os.path.join(iconset_dir, clean_name))
-            if '512x512' in f and '2x' not in f and '1' not in f:
+            if f == 'icon_512x512.png':
                 shutil.copy2(os.path.join(src_icon_dir, f), os.path.join(RESOURCES_DIR, 'AppIcon.png'))
     
     icns_path = os.path.join(RESOURCES_DIR, 'AppIcon.icns')
@@ -201,10 +205,15 @@ def main():
     if res_icns.returncode == 0:
         print("[+] Generated AppIcon.icns")
 
-    # Copy all device and support image assets
-    for png_path in glob.glob(f'{PROJECT_ROOT}/Stats/Supporting Files/Assets.xcassets/**/*.png', recursive=True):
-        if 'appiconset' not in png_path:
-            shutil.copy2(png_path, RESOURCES_DIR)
+    # Copy all device and support image assets under both filename and imageset name
+    for dirpath, _, filenames in os.walk(f'{PROJECT_ROOT}/Stats/Supporting Files/Assets.xcassets'):
+        if '.imageset' in dirpath:
+            imageset_name = os.path.basename(dirpath).replace('.imageset', '')
+            for f in filenames:
+                if f.endswith('.png'):
+                    src_file = os.path.join(dirpath, f)
+                    shutil.copy2(src_file, os.path.join(RESOURCES_DIR, f))
+                    shutil.copy2(src_file, os.path.join(RESOURCES_DIR, f'{imageset_name}.png'))
 
     # 9. Codesign bundle
     run_cmd(['codesign', '--force', '--deep', '-s', '-', APP_DIR], "Codesigning Stats.app")
